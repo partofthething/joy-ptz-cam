@@ -1,8 +1,7 @@
 """
-Utils
+The code to control a camera from a joystick.
 """
 
-from time import sleep
 import math
 
 from onvif import ONVIFCamera
@@ -11,11 +10,6 @@ import pygame
 
 BLACK = pygame.Color("black")
 WHITE = pygame.Color("white")
-
-XMAX = 1
-XMIN = -1
-YMAX = 1
-YMIN = -1
 
 
 def zeep_pythonvalue(self, xmlvalue):
@@ -160,33 +154,20 @@ class Camera:
         ptz_configuration_options = ptz.GetConfigurationOptions(request)
 
         # load max ranges
-        self.XMAX = ptz_configuration_options.Spaces.ContinuousPanTiltVelocitySpace[
-            0
-        ].XRange.Max
-        self.XMIN = ptz_configuration_options.Spaces.ContinuousPanTiltVelocitySpace[
-            0
-        ].XRange.Min
-        self.YMAX = ptz_configuration_options.Spaces.ContinuousPanTiltVelocitySpace[
-            0
-        ].YRange.Max
-        self.YMIN = ptz_configuration_options.Spaces.ContinuousPanTiltVelocitySpace[
-            0
-        ].YRange.Min
+        ranges = ptz_configuration_options.Spaces.ContinuousPanTiltVelocitySpace[0]
+        self.XMAX = ranges.XRange.Max
+        self.XMIN = ranges.XRange.Min
+        self.YMAX = ranges.YRange.Max
+        self.YMIN = ranges.YRange.Min
 
         request = ptz.create_type("ContinuousMove")
         request.ProfileToken = media_profile.token
-        ptz.Stop({"ProfileToken": media_profile.token})
+        token = {"ProfileToken": media_profile.token}
+        ptz.Stop(token)
 
         if request.Velocity is None:
-            request.Velocity = ptz.GetStatus(
-                {"ProfileToken": media_profile.token}
-            ).Position
-            request.Velocity = ptz.GetStatus(
-                {"ProfileToken": media_profile.token}
-            ).Position
-            request.Velocity.PanTilt.space = (
-                ptz_configuration_options.Spaces.ContinuousPanTiltVelocitySpace[0].URI
-            )
+            request.Velocity = ptz.GetStatus(token).Position
+            request.Velocity.PanTilt.space = ranges.URI
             request.Velocity.Zoom.space = (
                 ptz_configuration_options.Spaces.ContinuousZoomVelocitySpace[0].URI
             )
@@ -213,5 +194,5 @@ class Camera:
         self._ptz.ContinuousMove(self._request)
 
     def stop(self):
-        self._active_vector = [0.0,0.0,0.0]
+        self._active_vector = [0.0, 0.0, 0.0]
         self._ptz.Stop({"ProfileToken": self._request.ProfileToken})

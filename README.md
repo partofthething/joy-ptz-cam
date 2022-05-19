@@ -35,7 +35,7 @@ Example credentials file in JSON format
 * Run the program:
 
 ```
-$ python joyptz --config credentials.json cam1
+$ python -m joyptz --config credentials.json cam1
 ```
 
 * Enjoy
