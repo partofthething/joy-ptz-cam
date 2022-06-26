@@ -3,6 +3,7 @@ The code to control a camera from a joystick.
 """
 
 import math
+import json
 
 from onvif import ONVIFCamera
 import zeep
@@ -15,6 +16,10 @@ WHITE = pygame.Color("white")
 def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
 
+def read_config(path):
+    with open(path) as f:
+        config = json.loads(f.read())
+    return config
 
 class TextPrint(object):
     """A little screen for pygame to print to."""
@@ -140,7 +145,7 @@ class Camera:
         """Set up the camera."""
 
         mycam = ONVIFCamera(
-            config["host"], config["port"], config["username"], config["password"]
+            config["host"], config.get("port", 80), config.get("username"), config.get("password")
         )
         media = mycam.create_media_service()
         ptz = mycam.create_ptz_service()
@@ -164,9 +169,12 @@ class Camera:
         request.ProfileToken = media_profile.token
         token = {"ProfileToken": media_profile.token}
         ptz.Stop(token)
-
         if request.Velocity is None:
             request.Velocity = ptz.GetStatus(token).Position
+            if not request.Velocity.PanTilt:
+                # call GetStatus again to get a new copy
+                request.Velocity.PanTilt = ptz.GetStatus(token).Position.Zoom
+                request.Velocity.PanTilt.y = 0
             request.Velocity.PanTilt.space = ranges.URI
             request.Velocity.Zoom.space = (
                 ptz_configuration_options.Spaces.ContinuousZoomVelocitySpace[0].URI

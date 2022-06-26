@@ -1,5 +1,4 @@
 import argparse
-import json
 
 from . import cam
 
@@ -8,9 +7,6 @@ parser.add_argument('--config')
 parser.add_argument('camname')
 args = parser.parse_args()
 
-with open(args.config) as f:
-    config = json.loads(f.read())
-
+config = cam.read_config(args.config)
 camera = cam.Camera(config[args.camname])
 camera.loop()
-
