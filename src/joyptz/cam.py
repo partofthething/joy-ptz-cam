@@ -75,6 +75,7 @@ class Camera:
         pygame.display.set_caption("Joy PTZ")
         done = False
         locked = False
+        ir_mode = 0
         preset = 1
         clock = pygame.time.Clock()
         pygame.joystick.init()
@@ -90,6 +91,17 @@ class Camera:
                         locked = not locked
                     elif event.button == 5:
                         self.wiper_on()
+                    elif event.button == 3:
+                        ir_mode += 1
+                        if ir_mode == 3:
+                            ir_mode = 0
+
+                        if ir_mode == 0:
+                            self.ir_auto()
+                        elif ir_mode == 1:
+                            self.ir_on()
+                        elif ir_mode == 2:
+                            self.ir_off()
                 elif event.type == pygame.JOYHATMOTION:
                     hat = event.value
                     if hat[0] == 1:
@@ -304,12 +316,15 @@ class Camera:
             print("Invalid preset {number}")
 
     def ir_on(self):
+        print("IR ON")
         self.set_imaging_setting("IrCutFilter", "OFF")
 
     def ir_off(self):
+        print("IR OFF")
         self.set_imaging_setting("IrCutFilter", "ON")
 
     def ir_auto(self):
+        print("IR auto")
         self.set_imaging_setting("IrCutFilter", "AUTO")
 
     def set_imaging_setting(self, setting, val):
