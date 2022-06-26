@@ -6,6 +6,9 @@ import math
 import json
 
 from onvif import ONVIFCamera
+from onvif.exceptions import ONVIFError
+
+
 import zeep
 import pygame
 
@@ -16,10 +19,12 @@ WHITE = pygame.Color("white")
 def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
 
+
 def read_config(path):
     with open(path) as f:
         config = json.loads(f.read())
     return config
+
 
 class TextPrint(object):
     """A little screen for pygame to print to."""
@@ -51,11 +56,16 @@ class Camera:
     def __init__(self, config):
         self._request = None
         self._ptz = None
+        self._token = None
+        self._imaging = None
+        self._imaging_token = None
+        self._cam = None
         self.XMAX = 1
         self.XMIN = -1
         self.YMAX = 1
         self.YMIN = -1
         self._active_vector = [0.0, 0.0, 0.0]
+        self._active_focus = 0.0
 
         self.init_camera(config)
 
@@ -64,6 +74,8 @@ class Camera:
         screen = pygame.display.set_mode((500, 700))
         pygame.display.set_caption("Joy PTZ")
         done = False
+        locked = False
+        preset = 1
         clock = pygame.time.Clock()
         pygame.joystick.init()
         textPrint = TextPrint()
@@ -74,14 +86,25 @@ class Camera:
                 elif event.type == pygame.JOYBUTTONDOWN:
                     pass
                 elif event.type == pygame.JOYBUTTONUP:
-                    pass
+                    if event.button == 0:
+                        locked = not locked
+                    elif event.button == 5:
+                        self.wiper_on()
+                elif event.type == pygame.JOYHATMOTION:
+                    hat = event.value
+                    if hat[0] == 1:
+                        preset += 1
+                        self.goto_preset(preset)
+                    elif hat[0] == -1:
+                        preset -= 1
+                        self.goto_preset(preset)
 
             screen.fill(WHITE)
             textPrint.reset()
             joystick_count = pygame.joystick.get_count()
             textPrint.indent()
             for i in range(joystick_count):
-                vector = []
+                axes_vals = []
                 joystick = pygame.joystick.Joystick(i)
                 joystick.init()
                 try:
@@ -107,8 +130,32 @@ class Camera:
 
                 for i in range(axes):
                     axis = joystick.get_axis(i)
-                    vector.append(axis)
+                    # clear out noise
+                    if abs(axis) < 0.005:
+                        axis = 0.0
+                    axes_vals.append(axis)
                     textPrint.tprint(screen, "Axis {} value: {:>6.3f}".format(i, axis))
+                textPrint.unindent()
+
+                buttons = joystick.get_numbuttons()
+                textPrint.tprint(screen, "Number of buttons: {}".format(buttons))
+                textPrint.indent()
+
+                for i in range(buttons):
+                    button = joystick.get_button(i)
+                    textPrint.tprint(screen, "Button {:>2} value: {}".format(i, button))
+
+                textPrint.unindent()
+
+                hats = joystick.get_numhats()
+                textPrint.tprint(screen, "Number of hats: {}".format(hats))
+                textPrint.indent()
+
+                # Hat position. All or nothing for direction, not a float like
+                # get_axis(). Position is a tuple of int values (x, y).
+                for i in range(hats):
+                    hat = joystick.get_hat(i)
+                    textPrint.tprint(screen, "Hat {} value: {}".format(i, str(hat)))
                 textPrint.unindent()
 
                 textPrint.unindent()
@@ -120,19 +167,26 @@ class Camera:
             # They both rest at -1 and activate to +1
             # we want left trigger -1 to be zero and +1 to be 1
             # and right trigger -1 to be zero and +1 to be -1
-            zoom = -(vector[2] + 1) / 2.0 + (vector[5] + 1) / 2.0
+            zoom = -(axes_vals[2] + 1) / 2.0 + (axes_vals[5] + 1) / 2.0
 
-            vector = vector[:2] + [zoom]
-            vector[1] *= -1  # vertical axis flipped on my controller
-            mag = math.sqrt(sum([v**2 for v in vector]))
-            textPrint.tprint(screen, str(vector))
+            move_vector = axes_vals[:2] + [zoom]
+            move_vector[1] *= -1  # vertical axis flipped on my controller
+            mag = math.sqrt(sum([v**2 for v in move_vector]))
+            textPrint.tprint(screen, str(move_vector))
             textPrint.tprint(screen, str(mag))
             # mag usually chilling at 0.005
-            if mag < 0.006:
-                textPrint.tprint(screen, "stopped")
-                self.stop()
+            if not locked:
+                if mag < 0.006:
+                    textPrint.tprint(screen, "stopped")
+                    self.stop()
+                else:
+                    self.perform_move(move_vector)
+
+            focus = axes_vals[3]
+            if abs(focus) > 0.006:
+                self.set_focus_change(focus)
             else:
-                self.perform_move(vector)
+                self.set_focus_change(0.0)
 
             pygame.display.flip()
 
@@ -145,10 +199,15 @@ class Camera:
         """Set up the camera."""
 
         mycam = ONVIFCamera(
-            config["host"], config.get("port", 80), config.get("username"), config.get("password")
+            config["host"],
+            config.get("port", 80),
+            config.get("username"),
+            config.get("password"),
         )
+        self.cam = mycam
         media = mycam.create_media_service()
         ptz = mycam.create_ptz_service()
+        self._ptz = ptz
 
         zeep.xsd.simple.AnySimpleType.pythonvalue = zeep_pythonvalue
         media_profile = media.GetProfiles()[0]
@@ -157,6 +216,20 @@ class Camera:
         request = ptz.create_type("GetConfigurationOptions")
         request.ConfigurationToken = media_profile.PTZConfiguration.token
         ptz_configuration_options = ptz.GetConfigurationOptions(request)
+
+        image = mycam.create_imaging_service()
+        request = image.create_type("GetImagingSettings")
+        request.VideoSourceToken = media_profile.VideoSourceConfiguration.SourceToken
+        self._imaging_token = media_profile.VideoSourceConfiguration.SourceToken
+        # this info is kind of FYI during debugging/dev
+        # current settings
+        imaging_settings = image.GetImagingSettings(request)
+        # valid options
+        imaging_options = image.GetOptions(request)
+        self._imaging = image
+
+        # import ipdb
+        # ipdb.set_trace()
 
         # load max ranges
         ranges = ptz_configuration_options.Spaces.ContinuousPanTiltVelocitySpace[0]
@@ -168,6 +241,7 @@ class Camera:
         request = ptz.create_type("ContinuousMove")
         request.ProfileToken = media_profile.token
         token = {"ProfileToken": media_profile.token}
+        self._token = media_profile.token
         ptz.Stop(token)
         if request.Velocity is None:
             request.Velocity = ptz.GetStatus(token).Position
@@ -180,7 +254,6 @@ class Camera:
                 ptz_configuration_options.Spaces.ContinuousZoomVelocitySpace[0].URI
             )
         self._request = request
-        self._ptz = ptz
 
     def perform_move(self, vector):
         # if vector isn't that different from the last vector,
@@ -189,7 +262,7 @@ class Camera:
         dist = math.sqrt(
             sum((x1 - x2) ** 2 for x1, x2 in zip(vector, self._active_vector))
         )
-        if dist < 0.1:
+        if dist < 0.05:
             # close enough. don't update anything
             return
 
@@ -204,3 +277,54 @@ class Camera:
     def stop(self):
         self._active_vector = [0.0, 0.0, 0.0]
         self._ptz.Stop({"ProfileToken": self._request.ProfileToken})
+
+    def wiper_on(self):
+        """Send an auxiliary command for tt:Wiper|On
+
+        This command is shown in the GetNodes() results on ptz"""
+        self._send_aux_cmd("tt:Wiper|On")
+
+    def wiper_off(self):
+        """Send an auxiliary command for tt:Wiper|Off"""
+        self._send_aux_cmd("tt:Wiper|Off")
+
+    def _send_aux_cmd(self, cmd):
+        request = self._ptz.create_type("SendAuxiliaryCommand")
+        request.ProfileToken = self._token
+        request.AuxiliaryData = cmd
+        resp = self._ptz.SendAuxiliaryCommand(request)
+
+    def goto_preset(self, number):
+        request = self._ptz.create_type("GotoPreset")
+        request.ProfileToken = self._token
+        request.PresetToken = str(number)
+        try:
+            resp = self._ptz.GotoPreset(request)
+        except ONVIFError:
+            print("Invalid preset {number}")
+
+    def ir_on(self):
+        self.set_imaging_setting("IrCutFilter", "OFF")
+
+    def ir_off(self):
+        self.set_imaging_setting("IrCutFilter", "ON")
+
+    def ir_auto(self):
+        self.set_imaging_setting("IrCutFilter", "AUTO")
+
+    def set_imaging_setting(self, setting, val):
+        request = self._imaging.create_type("SetImagingSettings")
+        request.VideoSourceToken = self._imaging_token
+        request.ImagingSettings = {setting: val}
+        resp = self._imaging.SetImagingSettings(request)
+
+    def set_focus_change(self, val):
+        """skycam accepts speeds between -1 and 1."""
+        dist = abs(val - self._active_focus)
+        if dist < 0.05:
+            return
+        self._active_focus = val
+        request = self._imaging.create_type("Move")
+        request.VideoSourceToken = self._imaging_token
+        request.Focus = {"Continuous": {"Speed": val}}
+        resp = self._imaging.Move(request)
