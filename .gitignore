@@ -1,3 +1,6 @@
 credentials.json
 __pycache__
 *.sw*
+build
+dist
+**/*.egg-info
