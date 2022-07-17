@@ -11,7 +11,6 @@ from onvif.exceptions import ONVIFError
 import zeep
 
 
-
 def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
 
@@ -20,7 +19,6 @@ def read_config(path):
     with open(path) as f:
         config = json.loads(f.read())
     return config
-
 
 
 class Camera:
@@ -100,8 +98,8 @@ class Camera:
                 ptz_configuration_options.Spaces.ContinuousZoomVelocitySpace[0].URI
             )
         self._request = request
-        #import ipdb
-        #ipdb.set_trace()
+        # import ipdb
+        # ipdb.set_trace()
 
     def perform_move(self, vector):
         # if vector isn't that different from the last vector,
@@ -110,7 +108,7 @@ class Camera:
         dist = math.sqrt(
             sum((x1 - x2) ** 2 for x1, x2 in zip(vector, self._active_vector))
         )
-        #if dist < 0.05:
+        # if dist < 0.05:
         #    # close enough. don't update anything
         #    return
 
