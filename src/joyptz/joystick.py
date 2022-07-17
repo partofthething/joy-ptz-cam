@@ -4,8 +4,9 @@ Control the cam with pygame.
 Joystick or keyboard.
 """
 
-import math
 import pygame
+
+from .controller import Controller
 
 BLACK = pygame.Color("black")
 WHITE = pygame.Color("white")
@@ -19,7 +20,7 @@ class TextPrint(object):
         self.reset()
         self.font = pygame.font.Font(None, 20)
 
-    def print(self, textString):
+    def info(self, textString):
         textBitmap = self.font.render(textString, True, BLACK)
         self._screen.blit(textBitmap, (self.x, self.y))
         self.y += self.line_height
@@ -47,11 +48,10 @@ MOVE_KEYS = [
 ]
 
 
-class Controller:
+class JoystickController(Controller):
     """Pygame-based I/O camera controller"""
 
-    def __init__(self, cam):
-        self.cam = cam
+    def __init__(self, cam, config):
         pygame.init()
         screen = pygame.display.set_mode((500, 700))
         pygame.display.set_caption("Joy PTZ")
@@ -59,12 +59,8 @@ class Controller:
         # really what we want.
         # pygame.event.set_grab(True)
         pygame.joystick.init()
-        self.log = TextPrint(screen)
-        self.ir_mode = 0
-        self.locked = False
-        self._move_vector = [0,0,0]
-        self._focus = 0.0
-        self._speed = 1.0
+        log = TextPrint(screen)
+        super().__init__(cam, config, log)
 
     def loop(self):
         done = False
@@ -104,7 +100,7 @@ class Controller:
                 jid = joystick.get_id()
             self.log.indent()
             name = joystick.get_name()
-            self.log.print("Joystick name: {}".format(name))
+            self.log.info("Joystick name: {}".format(name))
 
             try:
                 guid = joystick.get_guid()
@@ -112,10 +108,10 @@ class Controller:
                 # get_guid() is an SDL2 method
                 pass
             else:
-                self.log.print("GUID: {}".format(guid))
+                self.log.info("GUID: {}".format(guid))
 
             axes = joystick.get_numaxes()
-            self.log.print("Number of axes: {}".format(axes))
+            self.log.info("Number of axes: {}".format(axes))
             self.log.indent()
 
             for i in range(axes):
@@ -124,28 +120,28 @@ class Controller:
                 if abs(axis) < 0.005:
                     axis = 0.0
                 axes_vals.append(axis)
-                self.log.print("Axis {} value: {:>6.3f}".format(i, axis))
+                self.log.info("Axis {} value: {:>6.3f}".format(i, axis))
             self.log.unindent()
 
             buttons = joystick.get_numbuttons()
-            self.log.print("Number of buttons: {}".format(buttons))
+            self.log.info("Number of buttons: {}".format(buttons))
             self.log.indent()
 
             for i in range(buttons):
                 button = joystick.get_button(i)
-                self.log.print("Button {:>2} value: {}".format(i, button))
+                self.log.info("Button {:>2} value: {}".format(i, button))
 
             self.log.unindent()
 
             hats = joystick.get_numhats()
-            self.log.print("Number of hats: {}".format(hats))
+            self.log.info("Number of hats: {}".format(hats))
             self.log.indent()
 
             # Hat position. All or nothing for direction, not a float like
             # get_axis(). Position is a tuple of int values (x, y).
             for i in range(hats):
                 hat = joystick.get_hat(i)
-                self.log.print("Hat {} value: {}".format(i, str(hat)))
+                self.log.info("Hat {} value: {}".format(i, str(hat)))
             self.log.unindent()
 
             self.log.unindent()
@@ -189,14 +185,14 @@ class Controller:
 
             try:
                 speed = int(event.unicode)
-                self._speed = float(speed)/10.0
-                self.log.print(f"Speed {self._speed}!")
+                self._speed = float(speed) / 10.0
+                self.log.info(f"Speed {self._speed}!")
             except ValueError:
                 pass
-            self.log.print(f"{event.key} {event.unicode}")
+            self.log.info(f"{event.key} {event.unicode}")
         if event.type == pygame.KEYUP and event.key in MOVE_KEYS:
-            self.log.print("Stopping!")
-            self._move_vector = [0,0,0]
+            self.log.info("Stopping!")
+            self._move_vector = [0, 0, 0]
 
     def _handle_joystick_event(self, event):
         if event.type == pygame.JOYBUTTONDOWN:
@@ -225,20 +221,3 @@ class Controller:
             elif hat[0] == -1:
                 preset -= 1
                 self.cam.goto_preset(preset)
-
-    def _process_move_vector(self):
-        mag = math.sqrt(sum([v**2 for v in self._move_vector]))
-        self.log.print(str(self._move_vector))
-        self.log.print(str(mag))
-        # mag usually chilling at 0.005
-        if not self.locked:
-            if mag < 0.006:
-                self.log.print("stopped")
-                self.cam.stop()
-            else:
-                self.cam.perform_move(self._move_vector)
-
-        if abs(self._focus) > 0.006:
-            self.cam.set_focus_change(self._focus)
-        else:
-            self.cam.set_focus_change(0.0)
