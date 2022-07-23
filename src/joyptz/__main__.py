@@ -4,11 +4,13 @@ from . import cam
 
 parser = argparse.ArgumentParser(description="Control a camera")
 parser.add_argument("--config")
+parser.add_argument("--output", default=False, action="store_true")
 parser.add_argument("camname")
 parser.add_argument("control")
 args = parser.parse_args()
 
 config = cam.read_config(args.config)[args.camname]
+config["output"] = args.output
 camera = cam.Camera(config)
 
 if args.control.lower() == "joystick":
