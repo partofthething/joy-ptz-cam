@@ -1,8 +1,6 @@
 import math
 import logging
 
-log = logging.getLogger()
-
 
 class Controller:
     """
@@ -11,7 +9,7 @@ class Controller:
     Intended to be reusable from a variety of control methods.
     """
 
-    def __init__(self, cam, config, log=log):
+    def __init__(self, cam, config, log=None):
         self.cam = cam
         self.config = config
         self.ir_mode = 0
@@ -19,7 +17,7 @@ class Controller:
         self._move_vector = [0, 0, 0]
         self._focus = 0.0
         self._speed = 1.0
-        self.log = log
+        self.log = log or logging.getLogger()
 
     def _process_move_vector(self):
         mag = math.sqrt(sum([v ** 2 for v in self._move_vector]))

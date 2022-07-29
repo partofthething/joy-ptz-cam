@@ -3,22 +3,18 @@ The code to control a camera from a joystick.
 """
 
 import math
-import json
+import logging
 
 from onvif import ONVIFCamera
 from onvif.exceptions import ONVIFError
 
 import zeep
 
+LOG = logging.getLogger(__name__)
+
 
 def zeep_pythonvalue(self, xmlvalue):
     return xmlvalue
-
-
-def read_config(path):
-    with open(path) as f:
-        config = json.loads(f.read())
-    return config
 
 
 class Camera:
@@ -144,6 +140,7 @@ class Camera:
         resp = self._ptz.SendAuxiliaryCommand(request)
 
     def goto_preset(self, number):
+        LOG.info("Going to preset %s", str(number))
         request = self._ptz.create_type("GotoPreset")
         request.ProfileToken = self._token
         request.PresetToken = str(number)
@@ -153,15 +150,15 @@ class Camera:
             print("Invalid preset {number}")
 
     def ir_on(self):
-        print("IR ON")
+        LOG.info("IR ON")
         self.set_imaging_setting("IrCutFilter", "OFF")
 
     def ir_off(self):
-        print("IR OFF")
+        LOG.info("IR OFF")
         self.set_imaging_setting("IrCutFilter", "ON")
 
     def ir_auto(self):
-        print("IR auto")
+        LOG.info("IR AUTO")
         self.set_imaging_setting("IrCutFilter", "AUTO")
 
     def set_imaging_setting(self, setting, val):

@@ -62,14 +62,14 @@ SPEED_ADJUST_FRAC = 0.2
 class TrackedController(Controller):
     """Camera controller that uses opencv image tracking to adjust PTZ"""
 
-    def __init__(self, cam, config):
-        super().__init__(cam, config)
+    def __init__(self, cam, config, log=None):
+        super().__init__(cam, config, log)
         self._speed = INITIAL_SPEED
         self._last_mag = INITIAL_MAG
 
         # webcam
         # video = cv2.VideoCapture(0)
-        video = self._video = cv2.VideoCapture(config["stream"])
+        video = self._video = cv2.VideoCapture(config["cam"]["stream"])
 
 
         # Exit if video not opened.
