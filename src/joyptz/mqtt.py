@@ -25,7 +25,9 @@ class NetworkController(Controller):
     def on_connect(self, client, userdata, flags, rc):
         """Do callback for when MQTT server connects."""
         self.log.info("Connected with result code %d", rc)
-        client.subscribe(self.config["mqtt"]["topic"])  # subscribe in case we get disconnected
+        client.subscribe(
+            self.config["mqtt"]["topic"]
+        )  # subscribe in case we get disconnected
 
     def on_message(self, client, userdata, msg):  # pylint: disable=unused-argument
         """Do callback for when MQTT receives a message."""
@@ -33,9 +35,9 @@ class NetworkController(Controller):
         key = msg.topic.split("/")[-1]
         cmd = msg.payload.decode()
         if cmd == "ptz left":
-            self._move_vector = [-1,0,0]
+            self._move_vector = [-1, 0, 0]
         elif cmd == "ptz stop":
-            self._move_vector = [0,0,0]
+            self._move_vector = [0, 0, 0]
         elif cmd.startswith("preset"):
             ps = int(cmd.split()[1])
             self.cam.goto_preset(ps)

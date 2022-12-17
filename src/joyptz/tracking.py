@@ -71,7 +71,6 @@ class TrackedController(Controller):
         # video = cv2.VideoCapture(0)
         video = self._video = cv2.VideoCapture(config["cam"]["stream"])
 
-
         # Exit if video not opened.
         if not video.isOpened():
             print("Could not open video")
@@ -91,8 +90,8 @@ class TrackedController(Controller):
         self._center = (width // 2, height // 2)
 
         if config["output"]:
-            fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-            self._out = cv2.VideoWriter('output.mp4', fourcc, 20.0, (width,height))
+            fourcc = cv2.VideoWriter_fourcc(*"MP4V")
+            self._out = cv2.VideoWriter("output.mp4", fourcc, 20.0, (width, height))
         else:
             self._out = None
 
@@ -145,7 +144,7 @@ class TrackedController(Controller):
                 # and 1 is on the edge of the cam.
                 # compare mag to the bounding box average of width/height
                 box_dim = math.sqrt(self._center[0] ** 2 + self._center[1] ** 2)
-                closeness = mag/box_dim
+                closeness = mag / box_dim
                 if closeness < CLOSE_ENOUGH_FRAC:
                     self._move_vector = [0, 0, 0]
                     self._speed = INITIAL_SPEED

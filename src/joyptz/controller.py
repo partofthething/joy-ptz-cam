@@ -20,7 +20,7 @@ class Controller:
         self.log = log or logging.getLogger()
 
     def _process_move_vector(self):
-        mag = math.sqrt(sum([v ** 2 for v in self._move_vector]))
+        mag = math.sqrt(sum([v**2 for v in self._move_vector]))
         self.log.info(str(self._move_vector))
         self.log.info(str(mag))
         # mag usually chilling at 0.005

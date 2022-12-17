@@ -22,9 +22,9 @@ args = parser.parse_args()
 config = read_config(args.config)
 
 config["output"] = args.output
-config["cam"] = config[args.camname] # general name e.g. to get stream info
+config["cam"] = config[args.camname]  # general name e.g. to get stream info
 
-camera = cam.Camera(config[args.camname]) 
+camera = cam.Camera(config[args.camname])
 
 if args.control.lower() == "joystick":
     from . import joystick
