@@ -153,7 +153,11 @@ class JoystickController(Controller):
             # They both rest at -1 and activate to +1
             # we want left trigger -1 to be zero and +1 to be 1
             # and right trigger -1 to be zero and +1 to be -1
-            zoom = -(axes_vals[2] + 1) / 2.0 + (axes_vals[5] + 1) / 2.0
+            if len(axes_vals) >= 6:
+                # handle cases where there are no triggers without crashing.
+                zoom = -(axes_vals[2] + 1) / 2.0 + (axes_vals[5] + 1) / 2.0
+            else:
+                zoom = 0.0
 
             move_vector = axes_vals[:2] + [zoom]
 
