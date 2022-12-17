@@ -13,10 +13,17 @@ def read_config(path):
 
 
 parser = argparse.ArgumentParser(description="Control a camera")
-parser.add_argument("--config")
+parser.add_argument("--config", help="Path to configuration file.")
 parser.add_argument("--output", default=False, action="store_true")
-parser.add_argument("camname")
-parser.add_argument("control")
+parser.add_argument(
+    "camname",
+    help="The camera name (should correspond with an entry in the config file)",
+)
+parser.add_argument(
+    "control",
+    choices=["joystick", "tracker", "network"],
+    help="Which control mode you want to use",
+)
 args = parser.parse_args()
 
 config = read_config(args.config)
